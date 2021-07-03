@@ -1,0 +1,43 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: >
+  quotel-users-api
+  
+  Sample SAM Template for quotel-users-api
+
+# More info about Globals: https://github.com/awslabs/serverless-application-model/blob/master/docs/globals.rst
+Globals:
+  Function:
+    Timeout: 10
+
+Parameters:
+  CognitoIdentityPoolName:
+  Type: String
+  Description: The name for your Cognito Identity Pool.
+  Default: 'DevPortalIdentityPool'
+
+Resources:
+  QuotelUserPool:
+    Type: AWS::Cognito::UserPool
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+
+    Properties:
+      AccountRecoverySetting:
+        RecoveryMechanisms: 
+          - Name: verified_email
+            Priority: 1
+      UserPoolName: !Ref CognitoIdentityPoolName
+      Policies:
+        PasswordPolicy:
+          MinimumLength: 12
+          RequireLowercase: true
+          RequireNumbers: true
+      Schema:
+        - AttributeDataType: String
+          Name: email
+          Required: true
+      AutoVerifiedAttributes: ['email']
+      UsernameAttributes: ['email']
+      EmailVerificationSubject: 'Developer Portal - Verification Code'
+      EmailVerificationMessage: '<h2>Developer Portal</h2><p>Your verification code is <b>{####}</b></p>'
