@@ -1,0 +1,9 @@
+{
+    "name": "holder",
+    "version": "1.0.0",
+    "main": "",
+    "license": "MIT",
+    "dependencies": {
+        "aws-sdk": "^2.939.0"
+    }
+}

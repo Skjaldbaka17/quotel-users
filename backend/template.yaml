@@ -52,6 +52,8 @@ Resources:
     DeletionPolicy: Retain
     UpdateReplacePolicy: Retain
     Properties:
+      LambdaConfig: 
+        PostConfirmation: arn:aws:lambda:eu-west-1:931620344609:function:quotel-users-backend-QuotelCognitoPostConfirmationTriggerFn
       AccountRecoverySetting:
         RecoveryMechanisms: 
           - Name: verified_email
@@ -112,19 +114,68 @@ Resources:
       UserPoolId: !Ref QuotelUserPool
 
 
-  CognitoPostAuthenticationTriggerFn:
+  QuotelCognitoPostConfirmationTriggerFn:
       Type: AWS::Serverless::Function
       Properties:
-        FunctionName: !Sub '${AWS::StackName}-CognitoPostConfirmationTriggerFn'
+        Role: !GetAtt CognitoPostConfirmationTriggerExecutionRole.Arn
+        FunctionName: !Sub '${AWS::StackName}-QuotelCognitoPostConfirmationTriggerFn'
         CodeUri: ./lambda-functions/cognito-post-confirmation-trigger
-        Handler: cognito-post-confirmation-trigger
-        Runtime: go1.x
-        Events:
-          CognitoEvent:
-            Type: Cognito
-            Properties:
-              UserPool: !Ref QuotelUserPool
-              Trigger: PostConfirmation
+        Handler: cognito-post-confirmation-trigger.handler
+        Runtime: nodejs14.x
+        # Events:
+        #   CognitoEvent:
+        #     Type: Cognito
+        #     Properties:
+        #       UserPool: !Ref QuotelUserPool
+        #       Trigger: PostConfirmation
+
+  CognitoPostConfirmationTriggerExecutionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          Effect: Allow
+          Principal:
+            Service: lambda.amazonaws.com
+          Action: sts:AssumeRole
+      Path: '/'
+      Policies:
+        - PolicyName: root
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - cognito-idp:AdminUpdateUserAttributes
+                Resource: !GetAtt QuotelUserPool.Arn
+              - Effect: Allow
+                Action:
+                  - apigateway:POST
+                  - apigateway:GET
+                Resource: "*"
+                ### For Cloudwatch!
+              - Effect: Allow
+                Action: 
+                  - logs:CreateLogGroup
+                  - logs:CreateLogStream
+                  - logs:PutLogEvents
+                Resource: "*"
+
+  QuotelCognitoPostConfirmationTriggerFnExecutionPermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      Action: lambda:InvokeFunction
+      FunctionName: !GetAtt QuotelCognitoPostConfirmationTriggerFn.Arn
+      Principal: cognito-idp.amazonaws.com
+      SourceArn: !Join
+        - ''
+        - - 'arn:aws:cognito-idp:'
+          - !Ref 'AWS::Region'
+          - ':'
+          - !Ref 'AWS::AccountId'
+          - ':userpool/'
+          - !Ref QuotelUserPool
   
 
 
