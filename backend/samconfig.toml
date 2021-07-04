@@ -1,0 +1,11 @@
+version = 0.1
+[default]
+[default.deploy]
+[default.deploy.parameters]
+stack_name = "quotel-users-backend"
+s3_bucket = "aws-sam-cli-managed-default-samclisourcebucket-1lej77pvzxcfv"
+s3_prefix = "quotel-users-backend"
+region = "eu-west-1"
+confirm_changeset = true
+capabilities = "CAPABILITY_IAM"
+parameter_overrides = "CognitoIdentityPoolName=\"QuotelUserIdPool\" CognitoClientName=\"QuotelClient\" GoogleClientID=\"303585640736-suljde3o2s6v0d3402tohd5h531or1al.apps.googleusercontent.com\" GoogleClientSecret=\"U2GOkfyQIUqg0pO7kfgAKR6b\""

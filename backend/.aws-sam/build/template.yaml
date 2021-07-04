@@ -1,0 +1,123 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: 'quotel-users-api
+
+  Sample SAM Template for quotel-users-api
+
+  '
+Globals:
+  Function:
+    Timeout: 10
+Parameters:
+  CognitoIdentityPoolName:
+    Type: String
+    Description: The name for your Cognito Identity Pool.
+    Default: DevPortalIdentityPool
+  CognitoClientName:
+    Type: String
+    Description: The name for your Cognito Client.
+    Default: CognitoClientPool
+  GoogleClientID:
+    Type: String
+    Description: The google client id for Google sign in.
+  GoogleClientSecret:
+    Type: String
+    Description: The google client id for Google sign in.
+Resources:
+  CognitoClientGoogleIdProvider:
+    Type: AWS::Cognito::UserPoolIdentityProvider
+    Properties:
+      ProviderName: Google
+      AttributeMapping:
+        email: email
+        email_verified: email_verified
+      ProviderDetails:
+        client_id:
+          Ref: GoogleClientID
+        client_secret:
+          Ref: GoogleClientSecret
+        authorize_scopes: email openid
+      ProviderType: Google
+      UserPoolId:
+        Ref: QuotelUserPool
+  QuotelUserPool:
+    Type: AWS::Cognito::UserPool
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+    Properties:
+      AccountRecoverySetting:
+        RecoveryMechanisms:
+        - Name: verified_email
+          Priority: 1
+      AdminCreateUserConfig:
+        AllowAdminCreateUserOnly: false
+      AutoVerifiedAttributes:
+      - email
+      EmailConfiguration:
+        ReplyToEmailAddress: thoragusts@gmail.com
+        EmailSendingAccount: COGNITO_DEFAULT
+      EmailVerificationMessage: <h2>Developer Portal</h2><p>Your verification code
+        is <b>{####}</b></p>
+      EmailVerificationSubject: Quotel API - Verification Code
+      Policies:
+        PasswordPolicy:
+          MinimumLength: 12
+          RequireLowercase: true
+          RequireNumbers: true
+          RequireUppercase: true
+      Schema:
+      - AttributeDataType: String
+        Name: email
+        Required: true
+      - AttributeDataType: String
+        Name: api_key
+        Required: false
+        Mutable: true
+      UsernameAttributes:
+      - email
+      UserPoolName:
+        Ref: CognitoIdentityPoolName
+  CognitoUserPoolClient:
+    Type: AWS::Cognito::UserPoolClient
+    Properties:
+      UserPoolId:
+        Ref: QuotelUserPool
+      ClientName:
+        Ref: CognitoClientName
+      GenerateSecret: false
+      RefreshTokenValidity: 30
+      PreventUserExistenceErrors: ENABLED
+      AllowedOAuthFlowsUserPoolClient: true
+      AllowedOAuthFlows:
+      - implicit
+      - code
+      AllowedOAuthScopes:
+      - openid
+      CallbackURLs:
+      - https://example.com/login
+      LogoutURLs:
+      - https://example.com/login
+      SupportedIdentityProviders:
+      - COGNITO
+      - Google
+  CognitoUserPoolDomain:
+    Type: AWS::Cognito::UserPoolDomain
+    Properties:
+      Domain: quotel-users
+      UserPoolId:
+        Ref: QuotelUserPool
+  CognitoPostAuthenticationTriggerFn:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName:
+        Fn::Sub: ${AWS::StackName}-CognitoPostConfirmationTriggerFn
+      CodeUri: CognitoPostAuthenticationTriggerFn
+      Handler: cognito-post-confirmation-trigger
+      Runtime: go1.x
+      Events:
+        CognitoEvent:
+          Type: Cognito
+          Properties:
+            UserPool:
+              Ref: QuotelUserPool
+            Trigger: PostConfirmation

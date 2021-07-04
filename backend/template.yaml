@@ -12,32 +12,121 @@ Globals:
 
 Parameters:
   CognitoIdentityPoolName:
-  Type: String
-  Description: The name for your Cognito Identity Pool.
-  Default: 'DevPortalIdentityPool'
+    Type: String
+    Description: The name for your Cognito Identity Pool.
+    Default: 'DevPortalIdentityPool'
+  CognitoClientName:
+    Type: String
+    Description: The name for your Cognito Client.
+    Default: 'CognitoClientPool'
+  GoogleClientID:
+    Type: String
+    Description: The google client id for Google sign in.
+  GoogleClientSecret:
+    Type: String
+    Description: The google client id for Google sign in.
+
 
 Resources:
+
+
+
+## The settings for Google as an identity provider (sign in)
+  CognitoClientGoogleIdProvider:
+    Type: AWS::Cognito::UserPoolIdentityProvider
+    Properties: 
+      ProviderName: Google
+      AttributeMapping:
+        email: email
+        email_verified: email_verified
+      ProviderDetails:
+        client_id: !Ref GoogleClientID
+        client_secret: !Ref GoogleClientSecret
+        authorize_scopes: email openid
+      ProviderType: Google
+      UserPoolId: !Ref QuotelUserPool
+
+##https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cognito-userpool.html
   QuotelUserPool:
     Type: AWS::Cognito::UserPool
     DeletionPolicy: Retain
     UpdateReplacePolicy: Retain
-
     Properties:
       AccountRecoverySetting:
         RecoveryMechanisms: 
           - Name: verified_email
             Priority: 1
-      UserPoolName: !Ref CognitoIdentityPoolName
+      AdminCreateUserConfig:
+        AllowAdminCreateUserOnly: False
+      AutoVerifiedAttributes:
+          - email
+      EmailConfiguration: 
+        #From: Þórður Ágústsson <skjaldbaka17@gmail.com>#TODO: Must change to AWS SES (DEVELOPER) to use
+        ReplyToEmailAddress: thoragusts@gmail.com
+        EmailSendingAccount: COGNITO_DEFAULT #TODO: Must change to AWS SES (DEVELOPER) for higher quota (currently only 50)
+      EmailVerificationMessage: <h2>Developer Portal</h2><p>Your verification code is <b>{####}</b></p> #Only works with EmailSendingAccount==DEVELOPER
+      EmailVerificationSubject: 'Quotel API - Verification Code' #Only works with EmailSendingAccount==DEVELOPER
       Policies:
         PasswordPolicy:
           MinimumLength: 12
           RequireLowercase: true
           RequireNumbers: true
+          RequireUppercase: true
       Schema:
         - AttributeDataType: String
           Name: email
           Required: true
-      AutoVerifiedAttributes: ['email']
+        - AttributeDataType: String
+          Name: api_key
+          Required: false
+          Mutable: true
       UsernameAttributes: ['email']
-      EmailVerificationSubject: 'Developer Portal - Verification Code'
-      EmailVerificationMessage: '<h2>Developer Portal</h2><p>Your verification code is <b>{####}</b></p>'
+      UserPoolName: !Ref CognitoIdentityPoolName
+
+## The Hosted UI client
+  CognitoUserPoolClient:
+    Type: AWS::Cognito::UserPoolClient
+    Properties:
+      UserPoolId: !Ref QuotelUserPool
+      ClientName: !Ref CognitoClientName
+      GenerateSecret: false
+      RefreshTokenValidity: 30
+      PreventUserExistenceErrors: ENABLED
+      AllowedOAuthFlowsUserPoolClient: true
+      AllowedOAuthFlows: [ "implicit" , "code"]
+      AllowedOAuthScopes: [ "openid" ]
+      CallbackURLs: 
+        - https://example.com/login
+      LogoutURLs: 
+        - https://example.com/login
+      SupportedIdentityProviders: 
+        - COGNITO
+        - Google
+      
+        
+  ## The unique domain name prefix for using HostedUI
+  CognitoUserPoolDomain:
+    Type: AWS::Cognito::UserPoolDomain
+    Properties: 
+      Domain: quotel-users
+      UserPoolId: !Ref QuotelUserPool
+
+
+  CognitoPostAuthenticationTriggerFn:
+      Type: AWS::Serverless::Function
+      Properties:
+        FunctionName: !Sub '${AWS::StackName}-CognitoPostConfirmationTriggerFn'
+        CodeUri: ./lambda-functions/cognito-post-confirmation-trigger
+        Handler: cognito-post-confirmation-trigger
+        Runtime: go1.x
+        Events:
+          CognitoEvent:
+            Type: Cognito
+            Properties:
+              UserPool: !Ref QuotelUserPool
+              Trigger: PostConfirmation
+  
+
+
+      
+      
